@@ -69,6 +69,60 @@ def filter_text(region, ocr_result, region_threshold):
             plate.append(result[1])
     return plate
 
+def levenshtein_distance(s1, s2):
+    m = len(s1)
+    n = len(s2)
+
+    dp = [[0] * (n + 1) for _ in range(m + 1)]
+
+    for i in range(m + 1):
+        dp[i][0] = i
+    for j in range(n + 1):
+        dp[0][j] = j
+
+    for i in range(1, m + 1):
+        for j in range(1, n + 1):
+            cost = 0 if s1[i - 1] == s2[j - 1] else 1
+            dp[i][j] = min(
+                dp[i - 1][j] + 1,         
+                dp[i][j - 1] + 1,         
+                dp[i - 1][j - 1] + cost   
+            )
+
+    return dp[m][n]
+
+def find_closest_value(input_str):
+    connection = mysql.connector.connect(
+        host="10.1.31.46",
+        user="root",
+        password="aedas",
+        database="parkit"
+    )
+
+    cursor = connection.cursor()
+
+    query = "SELECT matricula FROM matriculas"
+    cursor.execute(query)
+
+    closest_value = None
+    min_distance = float('inf')
+
+    for row in cursor.fetchall():
+        value = row[0]
+        distance = levenshtein_distance(input_str, value)
+        if distance <= 3 and distance < min_distance:
+            closest_value = value
+            min_distance = distance
+
+    cursor.close()
+    connection.close()
+
+    if min_distance <= 3:
+        return closest_value
+    else:
+        return 0
+
+
 def ocr_it(image, detections, detection_threshold, region_threshold):
     
     # Scores, boxes and classes above threhold
@@ -107,7 +161,7 @@ def save_results(text, region, csv_filename, folder_path):
 detection_threshold = 0.1
 region_threshold = 0.1
 
-conn = mysql.connector.connect(host = 'localhost', user = 'root', password = 'aedas', database = 'parkit')
+conn = mysql.connector.connect(host = '10.1.31.46', user = 'root', password = 'aedas', database = 'parkit')
 cursor = conn.cursor ()
 
 #Captura em Direto
@@ -161,10 +215,22 @@ while cap.isOpened():
                         texto_limpo = re.sub(r'\W+', '', texto_formatado).upper()
                         data_hora = datetime.datetime.now ()
                         data_hora_formatada = data_hora.strftime ('%Y-%m-%d %H:%M:%S')
-                        sql = "INSERT INTO matriculas (matricula, dataentrada, pagou) VALUES (%s, %s, %s)"
-                        params = (texto_limpo, data_hora_formatada, 0)
-                        cursor.execute (sql, params)
-                        conn.commit()
+                        valor = find_closest_value(texto_limpo)
+                        if(valor == 0):
+                            print("ERRO: Matrícula não está registada na base de dados.")
+                        else:
+                            sql = "SELECT pagou FROM matriculas WHERE matricula = " + valor + ";"
+                            cursor.execute (sql)
+                            for row in cursor.fetchall():
+                                value = row[0]
+                            if(value == 0):
+                                print("Não pagou o estacionamento, page o bilhete em ParkIt SelfPay")
+                            else:
+                                if(value == 1):
+                                    sql = "UPDATE registromatriculas SET datasaida = " + valor + " WHERE matricula = " + data_hora_formatada + ";"
+                                    cursor.execute (sql)
+                                    conn.commit()
+
                         passagem = input("Matrícula Gravada, Passagem completa? (Y): ")
                         while(passagem != "Y"):
                             passagem = input("Passagem completa? (Y): ")
