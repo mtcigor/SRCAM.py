@@ -219,15 +219,17 @@ while cap.isOpened():
                         if(valor == 0):
                             print("ERRO: Matrícula não está registada na base de dados.")
                         else:
-                            sql = "SELECT pagou FROM matriculas WHERE matricula = " + valor + ";"
+                            print("foi select")
+                            sql = "SELECT pagou FROM matriculas WHERE matricula = ""'" + valor + "'"" ;"
                             cursor.execute (sql)
                             for row in cursor.fetchall():
                                 value = row[0]
                             if(value == 0):
-                                print("Não pagou o estacionamento, page o bilhete em ParkIt SelfPay")
+                                print("Não pagou o estacionamento")
                             else:
                                 if(value == 1):
-                                    sql = "UPDATE registromatriculas SET datasaida = " + valor + " WHERE matricula = " + data_hora_formatada + ";"
+                                    print("foi update")
+                                    sql = "UPDATE registromatriculas SET datasaida = ""'" + data_hora_formatada + "'"" WHERE matricula = ""'" + valor + "'"" ;"
                                     cursor.execute (sql)
                                     conn.commit()
 
